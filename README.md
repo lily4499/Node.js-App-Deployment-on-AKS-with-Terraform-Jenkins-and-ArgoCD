@@ -232,9 +232,4 @@ az group delete --name tfstate
 
 ---
 
-## 🔗 License
-
-MIT © 2025 Your Name
-```
-
 ---
