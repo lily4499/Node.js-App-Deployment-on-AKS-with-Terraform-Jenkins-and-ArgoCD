@@ -222,16 +222,16 @@ pipeline {
 
 ```bash
 # Build image
-docker build -t myapp:1 .
+docker build -t myapp:v1.0.0 .
 
 # Tag for ACR
-docker tag myapp:1 myacrlil.azurecr.io/myapp:1
+docker tag myapp:v1.0.0  myacrlil.azurecr.io/myapp:v1.0.0
 
 # Login to ACR
 az acr login --name myacrlil
 
 # Push image
-docker push myacrlil.azurecr.io/myapp:1
+docker push myacrlil.azurecr.io/myapp:v1.0.0
 ```
 
 ---
