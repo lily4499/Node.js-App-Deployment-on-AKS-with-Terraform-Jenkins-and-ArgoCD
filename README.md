@@ -295,7 +295,7 @@ Ready to push to production or scale your CI/CD learning to the next level.
 
 ## License
 
-MIT © Your Name
+MIT © Liliane Konissi
 ```
 
-Would you like this saved as a `.md` file and uploaded to a repo structure?
+
