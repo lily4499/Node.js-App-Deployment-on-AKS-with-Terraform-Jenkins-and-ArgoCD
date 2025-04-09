@@ -1,3 +1,8 @@
+Here’s the cleaned-up **GitHub README.md** version of your CLI Chapter Breakdown, with **all emojis removed**:
+
+---
+
+```markdown
 # CI/CD Pipeline with Node.js, Terraform, Jenkins, ACR, AKS & ArgoCD
 
 This project demonstrates a complete DevOps workflow:
@@ -28,15 +33,24 @@ docker build -t my-node-app:latest .
 
 # Test Docker image locally
 docker run -p 3000:3000 my-node-app:latest
+```
 
-Chapter 2: Terraform and AKS (with Remote Backend)
-Set up Terraform project
+---
 
+## Chapter 2: Terraform and AKS (with Remote Backend)
+
+### Set up Terraform project
+
+```bash
 mkdir terraform-aks && cd terraform-aks
 touch main.tf backend.tf
+```
 
-Create create-backend.sh Script
+---
 
+### Create `create-backend.sh` Script
+
+```bash
 cat <<EOF > create-backend.sh
 #!/bin/bash
 
@@ -53,15 +67,22 @@ az storage account create --resource-group \$RESOURCE_GROUP_NAME --name \$STORAG
 # Create blob container
 az storage container create --name \$CONTAINER_NAME --account-name \$STORAGE_ACCOUNT_NAME
 EOF
+```
 
-Run the Script
+### Run the Script
 
+```bash
 chmod +x create-backend.sh
 ./create-backend.sh
+```
 
-Chapter 3: Authenticating to Azure (Terraform + Jenkins)
-Create a Service Principal
+---
 
+## Chapter 3: Authenticating to Azure (Terraform + Jenkins)
+
+### Create a Service Principal
+
+```bash
 az login
 
 az ad sp create-for-rbac \
@@ -69,29 +90,34 @@ az ad sp create-for-rbac \
   --role="Contributor" \
   --scopes="/subscriptions/<your-subscription-id>" \
   --sdk-auth
+```
 
-Export Environment Variables
+### Export Environment Variables
 
+```bash
 export ARM_CLIENT_ID="<clientId>"
 export ARM_CLIENT_SECRET="<clientSecret>"
 export ARM_SUBSCRIPTION_ID="<subscriptionId>"
 export ARM_TENANT_ID="<tenantId>"
+```
 
-Jenkins: Add Azure Credentials
+---
 
-    Go to: Jenkins → Manage Jenkins → Credentials → (global)
+### Jenkins: Add Azure Credentials
 
-    Add:
+1. Go to: Jenkins → Manage Jenkins → Credentials → (global)  
+2. Add:  
+   - Kind: Secret Text  
+   - Secret: Paste JSON from `--sdk-auth`  
+   - ID: `AZURE_CREDENTIALS`
 
-        Kind: Secret Text
+---
 
-        Secret: Paste JSON from --sdk-auth
+## Chapter 4: Define AKS Cluster + Configure Backend
 
-        ID: AZURE_CREDENTIALS
+### Configure Terraform Backend (`backend.tf`)
 
-Chapter 4: Define AKS Cluster + Configure Backend
-Configure Terraform Backend (backend.tf)
-
+```hcl
 terraform {
   backend "azurerm" {
     resource_group_name  = "tfstate"
@@ -100,9 +126,11 @@ terraform {
     key                  = "terraform.tfstate"
   }
 }
+```
 
-Define AKS Cluster (main.tf)
+### Define AKS Cluster (`main.tf`)
 
+```hcl
 provider "azurerm" {
   features {}
 }
@@ -123,9 +151,11 @@ resource "azurerm_kubernetes_cluster" "aks" {
     type = "SystemAssigned"
   }
 }
+```
 
-Provision Infrastructure
+### Provision Infrastructure
 
+```bash
 terraform init
 terraform plan
 terraform apply -auto-approve
@@ -133,16 +163,25 @@ terraform apply -auto-approve
 # Get AKS kubeconfig
 az aks get-credentials --resource-group <rg> --name <cluster>
 kubectl get nodes
+```
 
-Chapter 5: Jenkins – The Automation Engine
-Run Jenkins in Docker (local)
+---
 
+## Chapter 5: Jenkins – The Automation Engine
+
+### Run Jenkins in Docker (local)
+
+```bash
 docker run -d --name jenkins -p 8080:8080 -p 50000:50000 \
 -v jenkins_home:/var/jenkins_home \
 jenkins/jenkins:lts
+```
 
-Jenkinsfile (Azure Auth + Terraform)
+---
 
+### Jenkinsfile (Azure Auth + Terraform)
+
+```groovy
 pipeline {
   agent any
   environment {
@@ -175,9 +214,13 @@ pipeline {
     }
   }
 }
+```
 
-Chapter 6: Build and Push Docker Image
+---
 
+## Chapter 6: Build and Push Docker Image
+
+```bash
 # Build image
 docker build -t myapp:1 .
 
@@ -189,9 +232,13 @@ az acr login --name myacrlil
 
 # Push image
 docker push myacrlil.azurecr.io/myapp:1
+```
 
-Chapter 7: GitOps with ArgoCD
+---
 
+## Chapter 7: GitOps with ArgoCD
+
+```bash
 # Login to ArgoCD
 argocd login <ARGOCD_SERVER> --username admin --password <password>
 
@@ -207,32 +254,48 @@ argocd app sync my-app
 
 # Get App status
 argocd app get my-app
+```
 
-Chapter 8: Cleanup
+---
 
+## Chapter 8: Cleanup
+
+```bash
 terraform destroy -auto-approve
 kubectl config delete-context <aks-cluster>
+```
 
-Summary
+---
+
+## Summary
 
 This project integrates:
-
-    Terraform for IaC
-
-    Docker & ACR for containerization
-
-    Jenkins for CI
-
-    AKS for orchestration
-
-    ArgoCD for GitOps CD
+- Terraform for IaC  
+- Docker & ACR for containerization  
+- Jenkins for CI  
+- AKS for orchestration  
+- ArgoCD for GitOps CD  
 
 Ready to push to production or scale your CI/CD learning to the next level.
-Project Structure Suggestion
 
+---
+
+## Project Structure Suggestion
+
+```
 .
 ├── create-backend.sh
 ├── backend.tf
 ├── main.tf
 ├── Jenkinsfile
 └── README.md
+```
+
+---
+
+## License
+
+MIT © Your Name
+```
+
+Would you like this saved as a `.md` file and uploaded to a repo structure?
