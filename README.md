@@ -1,119 +1,97 @@
-# Node.js-App-Deployment-on-AKS-with-Terraform-Jenkins-and-ArgoCD
+# CI/CD Pipeline with Node.js, Terraform, Jenkins, ACR, AKS & ArgoCD
+
+This project demonstrates a complete DevOps workflow:
+
+1. Containerizing a Node.js app  
+2. Provisioning AKS with Terraform  
+3. Configuring Terraform remote backend with Azure Blob  
+4. Authenticating Azure access via Jenkins  
+5. Building & pushing Docker images to Azure Container Registry (ACR)  
+6. Deploying to AKS using ArgoCD (GitOps)  
+7. Cleaning up resources  
 
 ---
 
-```markdown
-# 🚀 Node.js App Deployment on AKS with Terraform, Jenkins, and ArgoCD
-
-This project demonstrates how to:
-
-- Push a Node.js web app to GitHub
-- Provision an Azure Kubernetes Service (AKS) cluster using Terraform
-- Configure a remote Terraform backend on Azure Blob Storage
-- Build and push Docker images to Azure Container Registry (ACR) using Jenkins
-- Deploy the application on AKS using ArgoCD (GitOps)
-
----
-
-## 📁 Project Structure
-
-```
-.
-├── terraform/
-│   ├── main.tf
-│   ├── providers.tf
-│   ├── variables.tf
-│   └── output.tf
-├── Jenkinsfile
-└── nodejs-app/
-```
-
----
-
-## 🧰 Prerequisites
-
-- Azure CLI
-- Terraform CLI
-- Jenkins (with ACR credentials configured)
-- ArgoCD CLI
-- Node.js app (push to GitHub if not already)
-
----
-
-## 1️⃣ Push Your Node.js App to GitHub
+## Chapter 1: Containerizing Our Node.js App
 
 ```bash
-cd your-nodejs-app
-git init
-git remote add origin https://github.com/<your-username>/<repo-name>.git
-git add .
-git commit -m "Initial commit"
-git push -u origin main
-```
+# Clone the Node.js app from GitHub
+git clone https://github.com/your-org/your-node-app.git
+cd your-node-app
 
----
+# Run the app locally to test
+npm install
+npm start
 
-## 2️⃣ Authenticate Terraform with Azure
+# Build a Docker image
+docker build -t my-node-app:latest .
 
-### Option 1: Azure CLI (Interactive)
-```bash
-az login
-```
+# Test Docker image locally
+docker run -p 3000:3000 my-node-app:latest
 
-### Option 2: Azure Service Principal (CI/CD)
+Chapter 2: Terraform and AKS (with Remote Backend)
+Set up Terraform project
 
-```bash
-az ad sp create-for-rbac \
-  --role="Contributor" \
-  --scopes="/subscriptions/<SUBSCRIPTION_ID>"
-```
+mkdir terraform-aks && cd terraform-aks
+touch main.tf backend.tf
 
-Export environment variables:
-```bash
-export ARM_CLIENT_ID=<appId>
-export ARM_CLIENT_SECRET=<password>
-export ARM_SUBSCRIPTION_ID=<subscriptionId>
-export ARM_TENANT_ID=<tenant>
-```
+Create create-backend.sh Script
 
----
-
-## 3️⃣ Create Azure Remote Backend
-
-### Create `create-backend.sh`
-
-```bash
+cat <<EOF > create-backend.sh
 #!/bin/bash
 
 RESOURCE_GROUP_NAME=tfstate
-STORAGE_ACCOUNT_NAME=tfstate$RANDOM
+STORAGE_ACCOUNT_NAME=lilitfstatesan
 CONTAINER_NAME=tfstate
 
-az group create --name $RESOURCE_GROUP_NAME --location westeurope
+# Create resource group
+az group create --name \$RESOURCE_GROUP_NAME --location eastus
 
-az storage account create \
-  --resource-group $RESOURCE_GROUP_NAME \
-  --name $STORAGE_ACCOUNT_NAME \
-  --sku Standard_LRS \
-  --encryption-services blob
+# Create storage account
+az storage account create --resource-group \$RESOURCE_GROUP_NAME --name \$STORAGE_ACCOUNT_NAME --sku Standard_LRS --encryption-services blob
 
-az storage container create \
-  --name $CONTAINER_NAME \
-  --account-name $STORAGE_ACCOUNT_NAME
-```
+# Create blob container
+az storage container create --name \$CONTAINER_NAME --account-name \$STORAGE_ACCOUNT_NAME
+EOF
 
-### Run Script
+Run the Script
 
-```bash
 chmod +x create-backend.sh
 ./create-backend.sh
-```
 
----
+Chapter 3: Authenticating to Azure (Terraform + Jenkins)
+Create a Service Principal
 
-## 4️⃣ Configure Terraform Backend
+az login
 
-```hcl
+az ad sp create-for-rbac \
+  --name "jenkins-terraform-sp" \
+  --role="Contributor" \
+  --scopes="/subscriptions/<your-subscription-id>" \
+  --sdk-auth
+
+Export Environment Variables
+
+export ARM_CLIENT_ID="<clientId>"
+export ARM_CLIENT_SECRET="<clientSecret>"
+export ARM_SUBSCRIPTION_ID="<subscriptionId>"
+export ARM_TENANT_ID="<tenantId>"
+
+Jenkins: Add Azure Credentials
+
+    Go to: Jenkins → Manage Jenkins → Credentials → (global)
+
+    Add:
+
+        Kind: Secret Text
+
+        Secret: Paste JSON from --sdk-auth
+
+        ID: AZURE_CREDENTIALS
+
+Chapter 4: Define AKS Cluster + Configure Backend
+Configure Terraform Backend (backend.tf)
+
 terraform {
   backend "azurerm" {
     resource_group_name  = "tfstate"
@@ -122,114 +100,139 @@ terraform {
     key                  = "terraform.tfstate"
   }
 }
-```
 
----
+Define AKS Cluster (main.tf)
 
-## 5️⃣ Create AKS Cluster with Terraform
+provider "azurerm" {
+  features {}
+}
 
-```bash
-cd terraform
+resource "azurerm_kubernetes_cluster" "aks" {
+  name                = "myAKSCluster"
+  location            = "East US"
+  resource_group_name = "myResourceGroup"
+  dns_prefix          = "myaks"
+
+  default_node_pool {
+    name       = "default"
+    node_count = 2
+    vm_size    = "Standard_DS2_v2"
+  }
+
+  identity {
+    type = "SystemAssigned"
+  }
+}
+
+Provision Infrastructure
+
 terraform init
+terraform plan
 terraform apply -auto-approve
-```
 
----
-
-## 6️⃣ Configure Jenkins to Push Image to ACR
-
-Update your `Jenkinsfile` as shown in this example:  
-📎 [Jenkinsfile Sample](https://github.com/lily4499/nodejs-webapp-2/blob/main/Jenkinsfile)
-
-ACR Login (optional test):
-```bash
-az acr login --name <yourACRName>
-```
-
----
-
-## 7️⃣ Get AKS Credentials
-
-```bash
-az aks get-credentials --resource-group my-rg --name karo-aks --overwrite-existing
+# Get AKS kubeconfig
+az aks get-credentials --resource-group <rg> --name <cluster>
 kubectl get nodes
-```
 
----
+Chapter 5: Jenkins – The Automation Engine
+Run Jenkins in Docker (local)
 
-## 8️⃣ Deploy with ArgoCD CLI
+docker run -d --name jenkins -p 8080:8080 -p 50000:50000 \
+-v jenkins_home:/var/jenkins_home \
+jenkins/jenkins:lts
 
-### Install ArgoCD
+Jenkinsfile (Azure Auth + Terraform)
 
-```bash
-kubectl create namespace argocd
-kubectl apply -n argocd \
--f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-```
+pipeline {
+  agent any
+  environment {
+    AZURE_CREDENTIALS = credentials('AZURE_CREDENTIALS')
+  }
+  stages {
+    stage('Azure Login') {
+      steps {
+        writeFile file: 'azureauth.json', text: "${AZURE_CREDENTIALS}"
+        sh '''
+        export ARM_CLIENT_ID=$(jq -r .clientId azureauth.json)
+        export ARM_CLIENT_SECRET=$(jq -r .clientSecret azureauth.json)
+        export ARM_SUBSCRIPTION_ID=$(jq -r .subscriptionId azureauth.json)
+        export ARM_TENANT_ID=$(jq -r .tenantId azureauth.json)
 
-### Get Initial Admin Password
+        az login --service-principal \
+            --username $ARM_CLIENT_ID \
+            --password $ARM_CLIENT_SECRET \
+            --tenant $ARM_TENANT_ID
+        '''
+      }
+    }
+    stage('Terraform Apply') {
+      steps {
+        sh '''
+        terraform init
+        terraform apply -auto-approve
+        '''
+      }
+    }
+  }
+}
 
-```bash
-kubectl get secret argocd-initial-admin-secret -n argocd \
--o jsonpath="{.data.password}" | base64 -d && echo
-```
+Chapter 6: Build and Push Docker Image
 
-### Port-Forward ArgoCD UI
+# Build image
+docker build -t myapp:1 .
 
-```bash
-kubectl port-forward svc/argocd-server -n argocd 8080:443
-```
+# Tag for ACR
+docker tag myapp:1 myacrlil.azurecr.io/myapp:1
 
-### ArgoCD CLI Login
+# Login to ACR
+az acr login --name myacrlil
 
-```bash
-argocd login 127.0.0.1:8080
-# Username: admin
-# Password: (from previous step)
-```
+# Push image
+docker push myacrlil.azurecr.io/myapp:1
 
-### Create ArgoCD App
+Chapter 7: GitOps with ArgoCD
 
-```bash
-argocd app create nodejs-app \
---repo https://github.com/ooghenekaro/argocd-amazon-manifest.git \
---path ./ \
+# Login to ArgoCD
+argocd login <ARGOCD_SERVER> --username admin --password <password>
+
+# Create App
+argocd app create my-app \
+--repo https://github.com/your-org/my-app.git \
+--path manifests/production \
 --dest-server https://kubernetes.default.svc \
---dest-namespace default \
---sync-policy automatic
-```
+--dest-namespace my-app
 
-### Manage App
+# Sync App
+argocd app sync my-app
 
-```bash
-argocd app list
-argocd app sync nodejs-app
-argocd app get nodejs-app
-argocd app rollback nodejs-app <revision>
-```
+# Get App status
+argocd app get my-app
 
----
+Chapter 8: Cleanup
 
-## 🧹 Cleanup
+terraform destroy -auto-approve
+kubectl config delete-context <aks-cluster>
 
-```bash
-az group delete --name tfstate
-```
+Summary
 
----
+This project integrates:
 
-## 📸 Screenshots (Optional)
+    Terraform for IaC
 
-> Include UI screenshots of Jenkins Pipeline, ArgoCD UI, and kubectl output if available.
+    Docker & ACR for containerization
 
----
+    Jenkins for CI
 
-## 🧠 Links
+    AKS for orchestration
 
-- Terraform AKS Sample: [lily4499/aks-demo](https://github.com/ooghenekaro/aks-demo)
-- Jenkins Pipeline Sample: [lily4499/nodejs-webapp-2](https://github.com/ooghenekaro/nodejs-webapp-2)
-- ArgoCD Docs: [argo-cd](https://argo-cd.readthedocs.io/en/stable/)
+    ArgoCD for GitOps CD
 
----
+Ready to push to production or scale your CI/CD learning to the next level.
+Project Structure Suggestion
 
----
+.
+├── create-backend.sh
+├── backend.tf
+├── main.tf
+├── Jenkinsfile
+└── README.md
